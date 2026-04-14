@@ -1,0 +1,40 @@
+# config.yaml
+# Revenue Forecasting Pipeline — connection config template
+# Never commit real credentials — use environment variables in production
+
+sources:
+  sql_db:
+    dialect:   snowflake            # snowflake | postgresql | mssql+pyodbc
+    host:      YOUR_SNOWFLAKE_ACCOUNT.snowflakecomputing.com
+    port:      443
+    database:  REVENUE_DB
+    schema:    PUBLIC
+    warehouse: COMPUTE_WH
+    user:      YOUR_USER
+    password:  YOUR_PASSWORD         # use env var: ${SNOWFLAKE_PASSWORD}
+
+warehouse:
+  dialect:   snowflake
+  host:      YOUR_SNOWFLAKE_ACCOUNT.snowflakecomputing.com
+  port:      443
+  database:  REVENUE_WAREHOUSE
+  schema:    ANALYTICS
+  warehouse: COMPUTE_WH
+  user:      YOUR_USER
+  password:  YOUR_PASSWORD           # use env var: ${SNOWFLAKE_PASSWORD}
+
+forecasting:
+  forecast_horizon_months: 12
+  train_test_split:        0.8
+  anomaly_z_threshold:     2.5
+  budget_variance_threshold_pct: 10.0
+  models:
+    - linear_regression
+    - xgboost
+
+pipeline:
+  output_dir:    data/processed
+  reports_dir:   reports
+  log_level:     INFO
+  export_csv:    true
+  export_parquet: false
