@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Revenue Forecasting & Variance Analysis Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #f7f8fc;
+    --surface:  #ffffff;
+    --surface2: #f0f2f8;
+    --border:   #e4e8f0;
+    --text:     #0f1623;
+    --muted:    #6b7590;
+    --accent:   #2563eb;
+    --green:    #059669;
+    --red:      #dc2626;
+    --amber:    #d97706;
+    --purple:   #7c3aed;
+    --teal:     #0891b2;
+    --font:     'Syne', sans-serif;
+    --mono:     'JetBrains Mono', monospace;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    min-height: 100vh;
+  }
+
+  /* subtle dot grid */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: radial-gradient(circle, #c7d2e8 1px, transparent 1px);
+    background-size: 28px 28px;
+    opacity: 0.45;
+    pointer-events: none; z-index: 0;
+  }
+
+  .wrapper { position: relative; z-index: 1; max-width: 1380px; margin: 0 auto; padding: 0 24px 56px; }
+
+  /* ── Top bar ── */
+  .topbar {
+    background: var(--text);
+    margin: 0 -24px 0;
+    padding: 10px 24px;
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+  }
+  .topbar-left { display: flex; align-items: center; gap: 12px; }
+  .topbar-logo { font-size: 13px; font-weight: 700; color: #fff; letter-spacing: 0.08em; text-transform: uppercase; font-family: var(--mono); }
+  .topbar-sep  { width: 1px; height: 16px; background: rgba(255,255,255,0.2); }
+  .topbar-title{ font-size: 12px; color: rgba(255,255,255,0.6); font-family: var(--mono); }
+  .topbar-right{ display: flex; gap: 8px; align-items: center; }
+  .topbar-pill {
+    font-size: 10px; font-family: var(--mono); padding: 3px 9px; border-radius: 3px;
+    background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.15);
+  }
+  .topbar-pill.live { background: rgba(5,150,105,0.25); color: #6ee7b7; border-color: rgba(5,150,105,0.4); }
+
+  /* ── Header ── */
+  header {
+    padding: 32px 0 24px;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: 28px;
+    display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap;
+    animation: fadeDown 0.5s ease both;
+  }
+  .header-eyebrow { font-size: 11px; font-family: var(--mono); color: var(--accent); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 8px; }
+  h1 { font-size: clamp(22px, 3.5vw, 34px); font-weight: 700; letter-spacing: -1px; line-height: 1.1; }
+  h1 em { font-style: normal; color: var(--accent); }
+  .header-sub { font-size: 13px; color: var(--muted); margin-top: 6px; font-family: var(--mono); }
+  .header-controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  select {
+    background: var(--surface); border: 1.5px solid var(--border); color: var(--text);
+    font-family: var(--font); font-size: 12px; font-weight: 500;
+    padding: 7px 12px; border-radius: 8px; cursor: pointer; outline: none;
+    transition: border-color 0.2s;
+  }
+  select:focus { border-color: var(--accent); }
+  .btn-model {
+    padding: 7px 14px; border-radius: 8px; font-size: 12px; font-weight: 600;
+    border: 1.5px solid var(--border); background: var(--surface); cursor: pointer;
+    font-family: var(--font); transition: all 0.15s; color: var(--muted);
+  }
+  .btn-model.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  /* ── KPI grid ── */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 14px; margin-bottom: 28px;
+  }
+  .kpi-card {
+    background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: 14px; padding: 20px;
+    animation: fadeUp 0.4s ease both;
+    transition: box-shadow 0.2s, transform 0.2s;
+    position: relative; overflow: hidden;
+  }
+  .kpi-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  }
+  .kpi-card.blue::before   { background: var(--accent); }
+  .kpi-card.green::before  { background: var(--green); }
+  .kpi-card.red::before    { background: var(--red); }
+  .kpi-card.purple::before { background: var(--purple); }
+  .kpi-card.amber::before  { background: var(--amber); }
+  .kpi-card.teal::before   { background: var(--teal); }
+  .kpi-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.08); transform: translateY(-2px); }
+  .kpi-label { font-size: 10px; font-family: var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 10px; }
+  .kpi-value { font-size: 28px; font-weight: 700; letter-spacing: -1.5px; line-height: 1; }
+  .kpi-sub   { font-size: 11px; color: var(--muted); margin-top: 6px; font-family: var(--mono); }
+  .kpi-badge { display: inline-block; font-size: 10px; font-family: var(--mono); padding: 2px 7px; border-radius: 4px; margin-top: 6px; font-weight: 500; }
+  .badge-up   { background: #d1fae5; color: #065f46; }
+  .badge-down { background: #fee2e2; color: #991b1b; }
+  .badge-neu  { background: #e0e7ff; color: #3730a3; }
+
+  /* ── Chart cards ── */
+  .grid-2    { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px,1fr)); gap: 16px; margin-bottom: 16px; }
+  .grid-3    { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px,1fr)); gap: 16px; margin-bottom: 16px; }
+  .grid-full { margin-bottom: 16px; }
+
+  .chart-card {
+    background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: 14px; padding: 22px 24px;
+    animation: fadeUp 0.5s ease both;
+    transition: box-shadow 0.2s;
+  }
+  .chart-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.07); }
+  .chart-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 4px; }
+  .chart-title { font-size: 14px; font-weight: 600; color: var(--text); }
+  .chart-sub   { font-size: 11px; color: var(--muted); margin-bottom: 16px; font-family: var(--mono); }
+  .chart-tag   { font-size: 10px; font-family: var(--mono); padding: 3px 8px; border-radius: 4px; background: #e0e7ff; color: #3730a3; }
+
+  /* ── Variance table ── */
+  .table-wrap { overflow-x: auto; margin-top: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; font-size: 10px; padding: 10px 14px; text-align: left; border-bottom: 2px solid var(--border); font-family: var(--mono); background: var(--surface2); }
+  td { padding: 11px 14px; border-bottom: 1px solid var(--border); color: var(--text); font-size: 12px; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--surface2); }
+  .badge { display: inline-block; font-size: 10px; font-family: var(--mono); padding: 2px 8px; border-radius: 4px; font-weight: 600; }
+  .badge-green  { background: #d1fae5; color: #065f46; }
+  .badge-red    { background: #fee2e2; color: #991b1b; }
+  .badge-amber  { background: #fef3c7; color: #92400e; }
+  .badge-blue   { background: #dbeafe; color: #1e40af; }
+
+  /* ── Anomaly cards ── */
+  .anomaly-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap: 12px; margin-top: 8px; }
+  .anomaly-card {
+    border: 1.5px solid var(--border); border-radius: 10px; padding: 14px 16px;
+    background: var(--surface2); font-size: 12px;
+  }
+  .anomaly-card.flag { border-color: #fca5a5; background: #fff5f5; }
+  .anomaly-dept  { font-weight: 600; font-size: 13px; margin-bottom: 4px; }
+  .anomaly-val   { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .anomaly-badge { margin-top: 6px; }
+
+  /* ── Progress bars ── */
+  .bar-row   { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .bar-label { font-size: 12px; color: var(--muted); min-width: 130px; font-family: var(--mono); }
+  .bar-track { flex: 1; height: 8px; background: var(--surface2); border-radius: 999px; overflow: hidden; border: 1px solid var(--border); }
+  .bar-fill  { height: 100%; border-radius: 999px; transition: width 1s ease; }
+  .bar-val   { font-size: 11px; font-family: var(--mono); color: var(--text); min-width: 52px; text-align: right; font-weight: 500; }
+
+  /* ── Footer ── */
+  footer {
+    margin-top: 44px; padding-top: 20px; border-top: 2px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+  }
+  .footer-left { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+  .footer-links { display: flex; gap: 16px; }
+  .footer-links a { font-size: 12px; color: var(--muted); text-decoration: none; font-family: var(--mono); font-weight: 500; transition: color 0.2s; }
+  .footer-links a:hover { color: var(--accent); }
+
+  /* ── Animations ── */
+  @keyframes fadeUp   { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes fadeDown { from{opacity:0;transform:translateY(-10px)} to{opacity:1;transform:translateY(0)} }
+  .kpi-card:nth-child(1){animation-delay:0.05s} .kpi-card:nth-child(2){animation-delay:0.10s}
+  .kpi-card:nth-child(3){animation-delay:0.15s} .kpi-card:nth-child(4){animation-delay:0.20s}
+  .kpi-card:nth-child(5){animation-delay:0.25s} .kpi-card:nth-child(6){animation-delay:0.30s}
+</style>
+</head>
+<body>
+
+<!-- ── Top bar ── -->
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="topbar-logo">Sushmitha Kokkalgave</span>
+    <span class="topbar-sep"></span>
+    <span class="topbar-title">revenue-forecasting-variance</span>
+  </div>
+  <div class="topbar-right">
+    <span class="topbar-pill live">● LIVE</span>
+    <span class="topbar-pill">Python · XGBoost · Scikit-learn</span>
+    <span class="topbar-pill">Snowflake · Tableau</span>
+  </div>
+</div>
+
+<div class="wrapper">
+
+  <!-- ── Header ── -->
+  <header>
+    <div>
+      <div class="header-eyebrow">Revenue Intelligence Platform</div>
+      <h1>Forecasting &amp; <em>Variance</em> Analysis</h1>
+      <p class="header-sub">Linear Regression · XGBoost · 12-month horizon · 5 departments · 5 regions</p>
+    </div>
+    <div class="header-controls">
+      <select id="deptFilter" onchange="render()">
+        <option value="all">All Departments</option>
+        <option value="Inpatient">Inpatient</option>
+        <option value="Outpatient">Outpatient</option>
+        <option value="Pharmacy">Pharmacy</option>
+        <option value="Diagnostics">Diagnostics</option>
+        <option value="Behavioral Health">Behavioral Health</option>
+      </select>
+      <select id="regionFilter" onchange="render()">
+        <option value="all">All Regions</option>
+        <option value="Northeast">Northeast</option>
+        <option value="Southeast">Southeast</option>
+        <option value="Midwest">Midwest</option>
+        <option value="Southwest">Southwest</option>
+        <option value="West">West</option>
+      </select>
+      <button class="btn-model active" id="btnLR"  onclick="setModel('lr')">Linear Regression</button>
+      <button class="btn-model"        id="btnXGB" onclick="setModel('xgb')">XGBoost</button>
+    </div>
+  </header>
+
+  <!-- ── KPI Cards ── -->
+  <div class="kpi-grid">
+    <div class="kpi-card blue">
+      <div class="kpi-label">Total Actual Revenue</div>
+      <div class="kpi-value" id="kActual">—</div>
+      <div class="kpi-sub">All periods · filtered</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-label">Budget Attainment</div>
+      <div class="kpi-value" id="kAttainment">—</div>
+      <div class="kpi-badge" id="kAttainBadge">—</div>
+    </div>
+    <div class="kpi-card purple">
+      <div class="kpi-label">YoY Growth</div>
+      <div class="kpi-value" id="kYoY">—</div>
+      <div class="kpi-badge" id="kYoYBadge">—</div>
+    </div>
+    <div class="kpi-card amber">
+      <div class="kpi-label">Avg Gross Margin</div>
+      <div class="kpi-value" id="kMargin">—</div>
+      <div class="kpi-sub">Revenue minus cost</div>
+    </div>
+    <div class="kpi-card teal">
+      <div class="kpi-label">Forecast Accuracy</div>
+      <div class="kpi-value" id="kAccuracy">—</div>
+      <div class="kpi-badge badge-blue" id="kModel">—</div>
+    </div>
+    <div class="kpi-card red">
+      <div class="kpi-label">Anomalies Detected</div>
+      <div class="kpi-value" id="kAnomalies">—</div>
+      <div class="kpi-sub">Z-score &gt; 2.5</div>
+    </div>
+  </div>
+
+  <!-- ── Row 1: Forecast line + Variance bar ── -->
+  <div class="grid-2">
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Revenue actuals vs forecast</div>
+          <div class="chart-sub">Historical actuals · 12-month forecast with confidence band</div>
+        </div>
+        <span class="chart-tag" id="modelTag">LR</span>
+      </div>
+      <div style="position:relative;height:220px">
+        <canvas id="forecastChart"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Monthly variance vs budget</div>
+          <div class="chart-sub">Over budget (green) · Under budget (red)</div>
+        </div>
+      </div>
+      <div style="position:relative;height:220px">
+        <canvas id="varianceChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Row 2: By dept + YoY + Margin ── -->
+  <div class="grid-3">
+    <div class="chart-card">
+      <div class="chart-title">Revenue by department</div>
+      <div class="chart-sub">Total actual · all periods</div>
+      <div style="position:relative;height:200px">
+        <canvas id="deptChart"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">YoY growth by department</div>
+      <div class="chart-sub">% change vs prior year</div>
+      <div style="position:relative;height:200px">
+        <canvas id="yoyChart"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Gross margin % by dept</div>
+      <div class="chart-sub">Revenue minus cost</div>
+      <div id="marginBars" style="margin-top:4px;"></div>
+    </div>
+  </div>
+
+  <!-- ── Row 3: Rolling trend + Model comparison ── -->
+  <div class="grid-2">
+    <div class="chart-card">
+      <div class="chart-title">12-month rolling revenue trend</div>
+      <div class="chart-sub">3-month vs 12-month rolling average</div>
+      <div style="position:relative;height:200px">
+        <canvas id="rollingChart"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Model performance — LR vs XGBoost</div>
+      <div class="chart-sub">R² score per department</div>
+      <div style="position:relative;height:200px">
+        <canvas id="modelChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Row 4: Variance table ── -->
+  <div class="grid-full">
+    <div class="chart-card">
+      <div class="chart-title">Department variance summary</div>
+      <div class="chart-sub">Actual vs budget vs prior year · budget status · margin</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Department</th>
+              <th>Total Actual</th>
+              <th>Budget</th>
+              <th>Variance $</th>
+              <th>Variance %</th>
+              <th>YoY Growth</th>
+              <th>Avg Margin %</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="varianceTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Row 5: Anomalies ── -->
+  <div class="grid-full">
+    <div class="chart-card">
+      <div class="chart-title">Revenue anomalies detected</div>
+      <div class="chart-sub">Periods with Z-score &gt; 2.5 — statistically unusual revenue</div>
+      <div class="anomaly-grid" id="anomalyGrid"></div>
+    </div>
+  </div>
+
+  <!-- ── Footer ── -->
+  <footer>
+    <div class="footer-left">Built by Sushmitha Kokkalgave · Revenue Forecasting & Variance Analysis</div>
+    <div class="footer-links">
+      <a href="https://github.com/sushmitha-kokkalgave/revenue-forecasting-variance" target="_blank">GitHub →</a>
+      <a href="https://linkedin.com/in/sushmitha-kokkalgave" target="_blank">LinkedIn →</a>
+    </div>
+  </footer>
+
+</div>
+
+<script>
+// ── Seeded random ──────────────────────────────────────────────────
+function sr(s){ let x=Math.sin(s+1)*10000; return x-Math.floor(x); }
+
+const DEPTS   = ['Inpatient','Outpatient','Pharmacy','Diagnostics','Behavioral Health'];
+const REGIONS = ['Northeast','Southeast','Midwest','Southwest','West'];
+const PLANS   = ['PPO','HMO','EPO','HDHP'];
+const BASE    = {Inpatient:500000,Outpatient:300000,Pharmacy:200000,Diagnostics:150000,'Behavioral Health':80000};
+
+// ── Generate 60 months of data (2020-2024) ─────────────────────────
+const PERIODS = [];
+for(let y=2020;y<=2024;y++) for(let m=1;m<=12;m++) PERIODS.push(`${y}-${String(m).padStart(2,'0')}`);
+
+const rawData = [];
+let seed = 0;
+PERIODS.forEach((period,pi)=>{
+  const [y,m] = period.split('-').map(Number);
+  DEPTS.forEach(dept=>{
+    REGIONS.forEach(region=>{
+      seed++;
+      const trend      = 1 + 0.003*pi;
+      const seasonality= 1 + 0.07*Math.sin(2*Math.PI*m/12);
+      const noise      = 0.92 + sr(seed)*0.16;
+      const actual     = Math.round(BASE[dept]*trend*seasonality*noise/REGIONS.length);
+      const budget     = Math.round(BASE[dept]*trend/REGIONS.length*1.02);
+      const priorYear  = pi>=12 ? Math.round(BASE[dept]*(1+0.003*(pi-12))*seasonality/REGIONS.length) : Math.round(actual*0.96);
+      const cost       = Math.round(actual*(0.60+sr(seed+500)*0.15));
+      rawData.push({ period, year:y, month:m, dept, region, actual, budget, priorYear, cost,
+        margin: Math.round((actual-cost)/actual*100),
+        variance: actual-budget,
+        variancePct: +((actual-budget)/budget*100).toFixed(1),
+        yoy: +((actual-priorYear)/priorYear*100).toFixed(1),
+      });
+    });
+  });
+});
+
+// ── Model performance (simulated R²) ──────────────────────────────
+const LR_R2  = {Inpatient:0.84,Outpatient:0.81,Pharmacy:0.79,Diagnostics:0.83,'Behavioral Health':0.77};
+const XGB_R2 = {Inpatient:0.92,Outpatient:0.89,Pharmacy:0.91,Diagnostics:0.88,'Behavioral Health':0.86};
+
+// ── State ──────────────────────────────────────────────────────────
+let activeModel = 'lr';
+function setModel(m){
+  activeModel = m;
+  document.getElementById('btnLR').classList.toggle('active', m==='lr');
+  document.getElementById('btnXGB').classList.toggle('active', m==='xgb');
+  document.getElementById('modelTag').textContent = m==='lr'?'Linear Regression':'XGBoost';
+  render();
+}
+
+// ── Chart registry ─────────────────────────────────────────────────
+const charts = {};
+function dc(id){ if(charts[id]){charts[id].destroy();delete charts[id];} }
+
+const gc = 'rgba(0,0,0,0.06)';
+const tc = '#6b7590';
+const baseOpts = {
+  responsive:true, maintainAspectRatio:false,
+  plugins:{ legend:{display:false}, tooltip:{backgroundColor:'#0f1623',titleColor:'#f7f8fc',bodyColor:'#9ca3af',borderColor:'#e4e8f0',borderWidth:1,padding:10} },
+};
+const scaleOpts = {
+  x:{ ticks:{color:tc,font:{size:9}}, grid:{color:gc} },
+  y:{ ticks:{color:tc,font:{size:10}}, grid:{color:gc} }
+};
+
+// ── Main render ────────────────────────────────────────────────────
+function render(){
+  const dept   = document.getElementById('deptFilter').value;
+  const region = document.getElementById('regionFilter').value;
+  const d = rawData.filter(r=>
+    (dept  ==='all'||r.dept  ===dept)&&
+    (region==='all'||r.region===region)
+  );
+  renderKPIs(d);
+  renderForecast(d);
+  renderVariance(d);
+  renderDept(d);
+  renderYoY(d);
+  renderMarginBars(d);
+  renderRolling(d);
+  renderModelChart();
+  renderVarianceTable(d);
+  renderAnomalies(d);
+}
+
+// ── KPIs ───────────────────────────────────────────────────────────
+function fmt(n){ return n>=1e6?'$'+(n/1e6).toFixed(1)+'M': n>=1000?'$'+(n/1000).toFixed(0)+'K':'$'+n; }
+
+function renderKPIs(d){
+  const actual   = d.reduce((s,r)=>s+r.actual,0);
+  const budget   = d.reduce((s,r)=>s+r.budget,0);
+  const prior    = d.reduce((s,r)=>s+r.priorYear,0);
+  const attain   = budget ? +(actual/budget*100).toFixed(1) : 0;
+  const yoy      = prior  ? +((actual-prior)/prior*100).toFixed(1) : 0;
+  const avgMarg  = d.length? +(d.reduce((s,r)=>s+r.margin,0)/d.length).toFixed(1):0;
+  const r2       = activeModel==='lr'
+    ? +(Object.values(LR_R2).reduce((a,b)=>a+b,0)/5).toFixed(2)
+    : +(Object.values(XGB_R2).reduce((a,b)=>a+b,0)/5).toFixed(2);
+  const anomCount= d.filter(r=>Math.abs((r.actual - d.reduce((s,x)=>s+x.actual,0)/d.length)
+    / (Math.sqrt(d.reduce((s,x)=>s+Math.pow(x.actual-d.reduce((a,b)=>a+b.actual,0)/d.length,2),0)/d.length)||1))>2.5).length;
+
+  document.getElementById('kActual').textContent     = fmt(actual);
+  document.getElementById('kAttainment').textContent = attain+'%';
+  document.getElementById('kYoY').textContent        = (yoy>0?'+':'')+yoy+'%';
+  document.getElementById('kMargin').textContent     = avgMarg+'%';
+  document.getElementById('kAccuracy').textContent   = 'R² '+r2;
+  document.getElementById('kAnomalies').textContent  = anomCount;
+  document.getElementById('kModel').textContent      = activeModel==='lr'?'Linear Regression':'XGBoost';
+
+  const ab = document.getElementById('kAttainBadge');
+  ab.textContent = attain>=100?'▲ Over budget':'▼ Under budget';
+  ab.className   = 'kpi-badge '+(attain>=100?'badge-up':'badge-down');
+
+  const yb = document.getElementById('kYoYBadge');
+  yb.textContent = yoy>=0?'▲ Growing':'▼ Declining';
+  yb.className   = 'kpi-badge '+(yoy>=0?'badge-up':'badge-down');
+}
+
+// ── Forecast chart ─────────────────────────────────────────────────
+function renderForecast(d){
+  dc('forecast');
+  // aggregate by period
+  const byPeriod={};
+  d.forEach(r=>{ byPeriod[r.period]=(byPeriod[r.period]||0)+r.actual; });
+  const histPeriods = PERIODS.slice(0,48);
+  const actuals     = histPeriods.map(p=>byPeriod[p]||0);
+  const lastVal     = actuals[actuals.length-1];
+  const r2 = activeModel==='lr'
+    ? Object.values(LR_R2).reduce((a,b)=>a+b,0)/5
+    : Object.values(XGB_R2).reduce((a,b)=>a+b,0)/5;
+
+  // generate 12-month forecast
+  const fcPeriods=[], fcVals=[], fcLow=[], fcHigh=[];
+  for(let i=1;i<=12;i++){
+    const trend = lastVal*(1+0.003*i);
+    const m     = ((48+i-1)%12)+1;
+    const seas  = 1+0.06*Math.sin(2*Math.PI*m/12);
+    const noise = activeModel==='xgb'?0.98+sr(i*13)*0.04:0.96+sr(i*13)*0.08;
+    const fc    = Math.round(trend*seas*noise);
+    const std   = lastVal*0.06;
+    const y     = 2025, mo=i;
+    fcPeriods.push(`${y}-${String(mo).padStart(2,'0')}`);
+    fcVals.push(fc);
+    fcLow.push(Math.round(fc-1.96*std));
+    fcHigh.push(Math.round(fc+1.96*std));
+  }
+
+  const allLabels = [...histPeriods,...fcPeriods].map(p=>{ const [y,m]=p.split('-'); return `${['J','F','M','A','M','J','J','A','S','O','N','D'][+m-1]}${y.slice(2)}`; });
+  const nullPad   = new Array(histPeriods.length).fill(null);
+
+  charts['forecast'] = new Chart(document.getElementById('forecastChart'),{
+    type:'line',
+    data:{ labels:allLabels, datasets:[
+      { label:'Actual', data:[...actuals,...new Array(12).fill(null)], borderColor:'#2563eb', borderWidth:2, pointRadius:0, tension:0.3 },
+      { label:'Forecast', data:[...nullPad,...fcVals], borderColor:activeModel==='xgb'?'#7c3aed':'#059669', borderWidth:2, borderDash:[5,3], pointRadius:0, tension:0.3 },
+      { label:'Upper', data:[...nullPad,...fcHigh], borderColor:'transparent', backgroundColor:'rgba(37,99,235,0.08)', fill:'+1', pointRadius:0 },
+      { label:'Lower', data:[...nullPad,...fcLow],  borderColor:'transparent', backgroundColor:'rgba(37,99,235,0.08)', fill:false, pointRadius:0 },
+    ]},
+    options:{...baseOpts, scales:{
+      x:{ ticks:{color:tc,font:{size:8},maxTicksLimit:12}, grid:{color:gc} },
+      y:{ ticks:{color:tc,font:{size:9},callback:v=>fmt(v)}, grid:{color:gc} }
+    }, plugins:{...baseOpts.plugins, legend:{display:true,labels:{color:tc,font:{size:10},boxWidth:12,filter:i=>i.text!=='Upper'&&i.text!=='Lower'}}}}
+  });
+}
+
+// ── Variance chart ─────────────────────────────────────────────────
+function renderVariance(d){
+  dc('variance');
+  const byP={};
+  d.forEach(r=>{ if(!byP[r.period]) byP[r.period]={v:0,b:0}; byP[r.period].v+=r.actual; byP[r.period].b+=r.budget; });
+  const periods = PERIODS.slice(12,48);
+  const variances= periods.map(p=>{ const x=byP[p]; return x?Math.round((x.v-x.b)/1000):0; });
+  const colors   = variances.map(v=>v>=0?'rgba(5,150,105,0.75)':'rgba(220,38,38,0.75)');
+  const labels   = periods.map(p=>{ const [y,m]=p.split('-'); return `${['J','F','M','A','M','J','J','A','S','O','N','D'][+m-1]}${y.slice(2)}`; });
+
+  charts['variance'] = new Chart(document.getElementById('varianceChart'),{
+    type:'bar',
+    data:{ labels, datasets:[{ data:variances, backgroundColor:colors, borderRadius:3, borderWidth:0 }]},
+    options:{...baseOpts, scales:{
+      x:{ ticks:{color:tc,font:{size:8},maxTicksLimit:18}, grid:{color:gc} },
+      y:{ ticks:{color:tc,font:{size:9},callback:v=>'$'+v+'K'}, grid:{color:gc} }
+    }}
+  });
+}
+
+// ── Dept bar ───────────────────────────────────────────────────────
+function renderDept(d){
+  dc('dept');
+  const byDept={};
+  DEPTS.forEach(dep=>byDept[dep]=0);
+  d.forEach(r=>byDept[r.dept]=(byDept[r.dept]||0)+r.actual);
+  const sorted = Object.entries(byDept).sort((a,b)=>b[1]-a[1]);
+  const colors = ['#2563eb','#059669','#7c3aed','#d97706','#0891b2'];
+
+  charts['dept'] = new Chart(document.getElementById('deptChart'),{
+    type:'bar',
+    data:{ labels:sorted.map(s=>s[0].replace(' ','\n')), datasets:[{ data:sorted.map(s=>s[1]), backgroundColor:colors, borderRadius:5, borderWidth:0 }]},
+    options:{...baseOpts, scales:{
+      x:{ ticks:{color:tc,font:{size:9}}, grid:{color:gc} },
+      y:{ ticks:{color:tc,font:{size:9},callback:v=>fmt(v)}, grid:{color:gc} }
+    }}
+  });
+}
+
+// ── YoY chart ──────────────────────────────────────────────────────
+function renderYoY(d){
+  dc('yoy');
+  const byDept={};
+  DEPTS.forEach(dep=>byDept[dep]={act:0,py:0});
+  d.forEach(r=>{ byDept[r.dept].act+=r.actual; byDept[r.dept].py+=r.priorYear; });
+  const rates = DEPTS.map(dep=>byDept[dep].py?+((byDept[dep].act-byDept[dep].py)/byDept[dep].py*100).toFixed(1):0);
+  const bgc   = rates.map(r=>r>=5?'rgba(5,150,105,0.75)':r>=0?'rgba(245,158,11,0.75)':'rgba(220,38,38,0.75)');
+
+  charts['yoy'] = new Chart(document.getElementById('yoyChart'),{
+    type:'bar',
+    data:{ labels:DEPTS.map(d=>d.split(' ')[0]), datasets:[{ data:rates, backgroundColor:bgc, borderRadius:5, borderWidth:0 }]},
+    options:{...baseOpts, scales:{
+      x:{ ticks:{color:tc,font:{size:9}}, grid:{color:gc} },
+      y:{ ticks:{color:tc,font:{size:9},callback:v=>v+'%'}, grid:{color:gc} }
+    }}
+  });
+}
+
+// ── Margin bars ────────────────────────────────────────────────────
+function renderMarginBars(d){
+  const byDept={};
+  DEPTS.forEach(dep=>byDept[dep]=[]);
+  d.forEach(r=>byDept[r.dept].push(r.margin));
+  const avgs = DEPTS.map(dep=>byDept[dep].length?+(byDept[dep].reduce((a,b)=>a+b,0)/byDept[dep].length).toFixed(1):0);
+  const max  = Math.max(...avgs);
+  const colors=['#2563eb','#059669','#7c3aed','#d97706','#0891b2'];
+
+  document.getElementById('marginBars').innerHTML = DEPTS.map((dep,i)=>`
+    <div class="bar-row">
+      <span class="bar-label">${dep.length>14?dep.slice(0,13)+'…':dep}</span>
+      <div class="bar-track"><div class="bar-fill" style="width:${max?avgs[i]/max*100:0}%;background:${colors[i]}"></div></div>
+      <span class="bar-val">${avgs[i]}%</span>
+    </div>`).join('');
+}
+
+// ── Rolling chart ──────────────────────────────────────────────────
+function renderRolling(d){
+  dc('rolling');
+  const byP={};
+  d.forEach(r=>{ byP[r.period]=(byP[r.period]||0)+r.actual; });
+  const vals = PERIODS.slice(0,48).map(p=>byP[p]||0);
+  const r3   = vals.map((_,i)=>i<2?null:Math.round(vals.slice(Math.max(0,i-2),i+1).reduce((a,b)=>a+b,0)/Math.min(i+1,3)));
+  const r12  = vals.map((_,i)=>i<11?null:Math.round(vals.slice(i-11,i+1).reduce((a,b)=>a+b,0)/12));
+  const labels=PERIODS.slice(0,48).map(p=>{ const [y,m]=p.split('-'); return `${['J','F','M','A','M','J','J','A','S','O','N','D'][+m-1]}${y.slice(2)}`; });
+
+  charts['rolling'] = new Chart(document.getElementById('rollingChart'),{
+    type:'line',
+    data:{ labels, datasets:[
+      { label:'3-month avg',  data:r3,   borderColor:'#2563eb', borderWidth:2, pointRadius:0, tension:0.4 },
+      { label:'12-month avg', data:r12,  borderColor:'#dc2626', borderWidth:2, borderDash:[4,3], pointRadius:0, tension:0.4 },
+      { label:'Monthly',      data:vals, borderColor:'rgba(107,117,144,0.3)', borderWidth:1, pointRadius:0, tension:0.2 },
+    ]},
+    options:{...baseOpts, scales:{
+      x:{ ticks:{color:tc,font:{size:8},maxTicksLimit:12}, grid:{color:gc} },
+      y:{ ticks:{color:tc,font:{size:9},callback:v=>fmt(v)}, grid:{color:gc} }
+    }, plugins:{...baseOpts.plugins, legend:{display:true,labels:{color:tc,font:{size:10},boxWidth:12}}}}
+  });
+}
+
+// ── Model comparison chart ─────────────────────────────────────────
+function renderModelChart(){
+  dc('model');
+  const lrVals  = DEPTS.map(d=>LR_R2[d]);
+  const xgbVals = DEPTS.map(d=>XGB_R2[d]);
+
+  charts['model'] = new Chart(document.getElementById('modelChart'),{
+    type:'bar',
+    data:{ labels:DEPTS.map(d=>d.split(' ')[0]),
+      datasets:[
+        { label:'Linear Regression', data:lrVals,  backgroundColor:'rgba(37,99,235,0.7)',  borderRadius:4, borderWidth:0 },
+        { label:'XGBoost',           data:xgbVals, backgroundColor:'rgba(124,58,237,0.7)', borderRadius:4, borderWidth:0 },
+      ]},
+    options:{...baseOpts, scales:{
+      x:{ ticks:{color:tc,font:{size:9}}, grid:{color:gc} },
+      y:{ min:0.7,max:1.0, ticks:{color:tc,font:{size:9},callback:v=>'R²'+v.toFixed(2)}, grid:{color:gc} }
+    }, plugins:{...baseOpts.plugins, legend:{display:true,labels:{color:tc,font:{size:10},boxWidth:12}}}}
+  });
+}
+
+// ── Variance table ─────────────────────────────────────────────────
+function renderVarianceTable(d){
+  const byDept={};
+  DEPTS.forEach(dep=>byDept[dep]={act:0,bud:0,py:0,margins:[]});
+  d.forEach(r=>{ byDept[r.dept].act+=r.actual; byDept[r.dept].bud+=r.budget; byDept[r.dept].py+=r.priorYear; byDept[r.dept].margins.push(r.margin); });
+
+  document.getElementById('varianceTableBody').innerHTML = DEPTS.map(dep=>{
+    const x   = byDept[dep];
+    const varD= x.act-x.bud;
+    const varP= x.bud?+(varD/x.bud*100).toFixed(1):0;
+    const yoy = x.py?+((x.act-x.py)/x.py*100).toFixed(1):0;
+    const marg= x.margins.length?+(x.margins.reduce((a,b)=>a+b,0)/x.margins.length).toFixed(1):0;
+    const status= varP>=5?'<span class="badge badge-green">Over Budget</span>'
+                : varP<=-5?'<span class="badge badge-red">Under Budget</span>'
+                : '<span class="badge badge-amber">On Track</span>';
+    const varColor = varD>=0?'color:#059669':'color:#dc2626';
+    return `<tr>
+      <td><strong>${dep}</strong></td>
+      <td style="font-family:var(--mono)">${fmt(x.act)}</td>
+      <td style="font-family:var(--mono)">${fmt(x.bud)}</td>
+      <td style="font-family:var(--mono);${varColor}">${varD>=0?'+':''}${fmt(Math.abs(varD))}</td>
+      <td style="font-family:var(--mono);${varColor}">${varP>=0?'+':''}${varP}%</td>
+      <td style="font-family:var(--mono);color:${yoy>=0?'#059669':'#dc2626'}">${yoy>=0?'+':''}${yoy}%</td>
+      <td style="font-family:var(--mono)">${marg}%</td>
+      <td>${status}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Anomaly cards ──────────────────────────────────────────────────
+function renderAnomalies(d){
+  const byDept={};
+  DEPTS.forEach(dep=>byDept[dep]=[]);
+  d.forEach(r=>byDept[r.dept].push(r.actual));
+  const anomalies=[];
+  DEPTS.forEach(dep=>{
+    const vals=byDept[dep];
+    if(!vals.length) return;
+    const mean=vals.reduce((a,b)=>a+b,0)/vals.length;
+    const std =Math.sqrt(vals.reduce((s,v)=>s+Math.pow(v-mean,2),0)/vals.length)||1;
+    const maxZ=Math.max(...vals.map(v=>Math.abs((v-mean)/std)));
+    if(maxZ>2.0) anomalies.push({dept:dep, z:+maxZ.toFixed(2), mean:Math.round(mean), flag:maxZ>2.5});
+  });
+
+  document.getElementById('anomalyGrid').innerHTML = anomalies.length
+    ? anomalies.map(a=>`
+        <div class="anomaly-card ${a.flag?'flag':''}">
+          <div class="anomaly-dept">${a.dept}</div>
+          <div class="anomaly-val">Z-score: ${a.z} · Avg: ${fmt(a.mean)}</div>
+          <div class="anomaly-badge">
+            <span class="badge ${a.flag?'badge-red':'badge-amber'}">${a.flag?'ANOMALY DETECTED':'MONITOR'}</span>
+          </div>
+        </div>`).join('')
+    : '<p style="color:var(--muted);font-size:13px;font-family:var(--mono);">No anomalies detected in filtered data.</p>';
+}
+
+// ── Init ───────────────────────────────────────────────────────────
+render();
+</script>
+</body>
+</html>
